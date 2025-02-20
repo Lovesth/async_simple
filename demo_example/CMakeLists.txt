@@ -56,6 +56,11 @@ target_link_libraries(block_http_server async_simple)
 add_executable(pmr_lazy pmr_lazy.cpp)
 target_link_libraries(pmr_lazy async_simple)
 
+include_directories(coro_epoll)
+add_executable(coro_epoll_server coro_epoll_server.cpp coro_epoll/IoContext.cpp coro_epoll/Socket.cpp)
+target_link_libraries(coro_epoll_server async_simple)
+target_link_libraries(coro_epoll_server ${LIBAIO_LIBRARIES})
+
 SET(ENABLE_SSL OFF)
 
 if (ENABLE_SSL)
