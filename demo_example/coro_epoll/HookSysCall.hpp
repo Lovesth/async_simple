@@ -9,6 +9,7 @@
 #include <sys/socket.h>
 #include "async_simple/coro/Lazy.h"
 #include "Socket.h"
+#include "IoContext.h"
 
 // 假设Socket::fd_已经是no_block模式
 async_simple::coro::Lazy<int> connect(Socket *sock, sockaddr *serverAdder) {
@@ -49,7 +50,6 @@ async_simple::coro::Lazy<int> recv(Socket *sock, void *buffer, size_t len) {
             (void)events;
             if (sock->fd_ != -1) {
                 // TODO 判断是否是ET模式
-                // TODO 出错时关闭fd
                 ret = ::recv(sock->fd_, buffer, len, 0);
             }
         }
@@ -67,7 +67,6 @@ async_simple::coro::Lazy<int> accept(Socket *sock) {
             (void)events;
             if (sock->fd_ != -1) {
                 // TODO 判断是否是ET模式
-                // TODO 出错时关闭fd
                 ret = ::accept(sock->fd_, reinterpret_cast<sockaddr *>(&addr), &len);
             }
         }

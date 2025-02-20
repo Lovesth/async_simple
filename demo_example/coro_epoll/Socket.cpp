@@ -6,10 +6,21 @@
 #include <sys/socket.h>
 #include "IoContext.h"
 
-Socket::Socket(int domain, int type, int protocol, uint32_t listen_events,
-               IoContext *io_context)
+Socket::Socket(int domain, int type, int protocol, IoContext *io_context, uint32_t listen_events)
     : io_context_(io_context), listen_events_(listen_events) {
     fd_ = ::socket(domain, type, protocol);
+    if (fd_ == -1) {
+        std::cerr << "Error creating socket" << std::endl;
+        exit(-1);
+    }
+    if (!addEvents(listen_events_) || !attach2IoContext()) {
+        std::cerr << "Error attached to io_context" << std::endl;
+        exit(-1);
+    }
+
+}
+Socket::Socket(int fd, IoContext *io_context, uint32_t listen_events)
+    : fd_(fd), io_context_(io_context), listen_events_(listen_events) {
     if (fd_ == -1) {
         std::cerr << "Error creating socket" << std::endl;
         exit(-1);
@@ -26,8 +37,7 @@ Socket::~Socket() {
     }
 }
 bool Socket::attach2IoContext() {
-    if (!io_context_ || io_context_->epoll_fd_ == -1 ||
-        io_context_->maxEvents_ <= 0 || io_context_->maxThreads_ <= 0)
+    if (!io_context_)
         return false;
     const int epoll_fd = io_context_->epoll_fd_;
     epoll_event event{};

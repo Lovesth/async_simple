@@ -12,7 +12,7 @@ class Socket;
 
 class IoContext {
 public:
-    IoContext(int maxThreads = 10, int maxEvents = 100);
+    IoContext(int maxEvents = 100, async_simple::executors::SimpleExecutor *executor = nullptr);
     IoContext(const IoContext &other) = delete;
     IoContext &operator=(const IoContext &other) = delete;
     IoContext(IoContext &&other);
@@ -23,7 +23,6 @@ public:
 
 public:
     int epoll_fd_;
-    int maxThreads_;
     int maxEvents_;
     async_simple::executors::SimpleExecutor *executor_;
     epoll_event *eventPool_;

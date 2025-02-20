@@ -24,8 +24,8 @@ public:
     //     ET = 1<<5, // ET模式
     //     ONESHOT = 1<<6, // 只监听一次事件，事件触发之后从epoll移除
     // };
-    Socket(int domain, int type, int protocol, uint32_t io_state,
-           IoContext *io_context);
+    Socket(int domain, int type, int protocol, IoContext *io_context, uint32_t listen_events = (EPOLLIN | EPOLLOUT | EPOLLRDHUP));
+    Socket(int fd, IoContext *io_context, uint32_t listen_events = (EPOLLIN | EPOLLOUT | EPOLLRDHUP));
     Socket(const Socket &) = delete;
     Socket &operator=(const Socket &) = delete;
     Socket(Socket &&other) = delete;
