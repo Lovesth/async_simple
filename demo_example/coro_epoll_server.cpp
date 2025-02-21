@@ -8,29 +8,50 @@
 #include <thread>
 #include "HookSysCall.hpp"
 
-async_simple::coro::Lazy<> echo_server(Socket* server_sock) {
+async_simple::coro::Lazy<uint32_t> echo_server(Socket* server_sock) {
     auto executor_ = co_await async_simple::CurrentExecutor{};
     auto io_context = server_sock->io_context_;
     async_simple::logicAssert(executor_ != nullptr,
                               "executor is not allowed to be nullptr here!");
-    while (server_sock->fd_ != -1) {
+    while (true) {
         auto fd = co_await accept(server_sock);
-        // auto sock = std::make_shared<Socket>();
-        if (fd == -1)
-            continue;
+        if (fd == -1) {
+            ::close(server_sock->fd_);
+            server_sock->fd_ = -1;
+            co_return server_sock->recv_event_;
+        }
         executor_->schedule([fd, io_context] {
             auto func = [fd, io_context] -> async_simple::coro::Lazy<> {
                 char buffer[1024] = {0};
                 Socket sock(fd, io_context);
                 while (true) {
-                    auto recv_len = co_await recv(&sock, buffer, sizeof(buffer));
-                    
+                    // receive
+                    auto recv_len =
+                        co_await recv(&sock, buffer, sizeof(buffer));
+                    if (recv_len <= 0) {
+                        std::cerr << "Error receive message!" << std::endl;
+                        ::close(sock.fd_);
+                        sock.fd_ = -1;
+                        co_return;
+                    }
+                    // send
+                    size_t send_len = 0;
+                    while (send_len < recv_len) {
+                        auto res = co_await send(&sock, buffer + send_len,
+                                                 recv_len - send_len);
+                        if (res <= 0) {
+                            std::cerr << "Error send message back!" << std::endl;
+                            co_return;
+                        }
+                        send_len += res;
+                    }
                 }
                 co_return;
             };
             func().start([](auto&&) {});
         });
     }
+    co_return 0;
 }
 
 int main() {

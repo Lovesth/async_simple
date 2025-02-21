@@ -47,9 +47,8 @@ void IoContext::run() {
             const auto events = eventPool_[i].events;
             async_simple::coro::ScopedSpinLock Lock(sock->coro_lock_);
             // 隐式监听
-            if (events & EPOLLERR) {
-                ::close(sock->fd_);
-                sock->fd_ = -1;
+            if (events & (EPOLLERR | EPOLLHUP)) {
+                // 出错或者关闭，交给上层处理错误
                 sock->recv_event_ = events;
                 sock->send_event_ = events;
                 if (auto h = std::exchange(sock->coro_recv_, nullptr); h) {
@@ -59,6 +58,14 @@ void IoContext::run() {
                     executor_->schedule([h] { h.resume(); });
                 }
                 continue;
+            }
+
+            if (events & EPOLLRDHUP) {
+                auto h = std::exchange(sock->coro_recv_, nullptr);
+                sock->recv_event_ = events;
+                if (h) {
+                    executor_->schedule([h] { h.resume(); });
+                }
             }
 
             if (events & EPOLLIN) {

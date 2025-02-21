@@ -7,9 +7,9 @@
 
 #include <sys/epoll.h>
 #include <sys/socket.h>
-#include "async_simple/coro/Lazy.h"
-#include "Socket.h"
 #include "IoContext.h"
+#include "Socket.h"
+#include "async_simple/coro/Lazy.h"
 
 // 假设Socket::fd_已经是no_block模式
 async_simple::coro::Lazy<int> connect(Socket *sock, sockaddr *serverAdder) {
@@ -18,10 +18,8 @@ async_simple::coro::Lazy<int> connect(Socket *sock, sockaddr *serverAdder) {
         if (sock->addEvents(EPOLLOUT)) {
             auto events = co_await SendAwaiter(sock);
             (void)events;
-            if (sock->fd_ != -1) {
-                // TODO 判断是否是ET模式
-                ret = ::connect(sock->fd_, serverAdder, sizeof(sockaddr));
-            }
+            // TODO 判断是否是ET模式
+            ret = ::connect(sock->fd_, serverAdder, sizeof(sockaddr));
         }
     }
     co_return ret;
@@ -33,10 +31,8 @@ async_simple::coro::Lazy<int> send(Socket *sock, void *buffer, size_t len) {
         if (sock->addEvents(EPOLLOUT)) {
             auto events = co_await SendAwaiter(sock);
             (void)events;
-            if (sock->fd_ != -1) {
-                // TODO 判断是否是ET模式
-                ret = ::send(sock->fd_, buffer, len, 0);
-            }
+            // TODO 判断是否是ET模式
+            ret = ::send(sock->fd_, buffer, len, 0);
         }
     }
     co_return ret;
@@ -48,10 +44,8 @@ async_simple::coro::Lazy<int> recv(Socket *sock, void *buffer, size_t len) {
         if (sock->addEvents(EPOLLIN)) {
             auto events = co_await RecvAwaiter(sock);
             (void)events;
-            if (sock->fd_ != -1) {
-                // TODO 判断是否是ET模式
-                ret = ::recv(sock->fd_, buffer, len, 0);
-            }
+            // TODO 判断是否是ET模式
+            ret = ::recv(sock->fd_, buffer, len, 0);
         }
     }
     co_return ret;
@@ -65,10 +59,8 @@ async_simple::coro::Lazy<int> accept(Socket *sock) {
         if (sock->addEvents(EPOLLOUT)) {
             auto events = co_await RecvAwaiter(sock);
             (void)events;
-            if (sock->fd_ != -1) {
-                // TODO 判断是否是ET模式
-                ret = ::accept(sock->fd_, reinterpret_cast<sockaddr *>(&addr), &len);
-            }
+            // TODO 判断是否是ET模式
+            ret = ::accept(sock->fd_, reinterpret_cast<sockaddr *>(&addr), &len);
         }
     }
     co_return ret;
