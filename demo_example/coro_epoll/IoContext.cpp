@@ -6,7 +6,7 @@
 #include "async_simple/coro/SpinLock.h"
 
 IoContext::IoContext(int maxEvents,
-                     async_simple::executors::SimpleExecutor *executor)
+                     async_simple::Executor *executor)
     : maxEvents_(maxEvents), executor_(executor) {
     epoll_fd_ = epoll_create1(0);
     if (epoll_fd_ == -1) {

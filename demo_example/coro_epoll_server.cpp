@@ -20,8 +20,8 @@ async_simple::coro::Lazy<uint32_t> echo_server(Socket* server_sock) {
             server_sock->fd_ = -1;
             co_return server_sock->recv_event_;
         }
-        executor_->schedule([fd, io_context] {
-            auto func = [fd, io_context] -> async_simple::coro::Lazy<> {
+        executor_->schedule([fd, io_context]()->void {
+            auto func = [fd, io_context]() -> async_simple::coro::Lazy<> {
                 char buffer[1024] = {0};
                 Socket sock(fd, io_context);
                 while (true) {
@@ -35,7 +35,7 @@ async_simple::coro::Lazy<uint32_t> echo_server(Socket* server_sock) {
                         co_return;
                     }
                     // send
-                    size_t send_len = 0;
+                    int send_len = 0;
                     while (send_len < recv_len) {
                         auto res = co_await send(&sock, buffer + send_len,
                                                  recv_len - send_len);
@@ -90,8 +90,7 @@ int main() {
     IoContext io_context(100, &executor);
     Socket server_sock(server_fd, &io_context);
 
+    auto t = std::jthread(&IoContext::run, &io_context);
     echo_server(&server_sock).directlyStart([](auto&&) {}, &executor);
-
-    auto t = std::jthread(IoContext::run, &io_context);
     return 0;
 }

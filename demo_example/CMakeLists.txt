@@ -61,6 +61,10 @@ add_executable(coro_epoll_server coro_epoll_server.cpp coro_epoll/IoContext.cpp 
 target_link_libraries(coro_epoll_server async_simple)
 target_link_libraries(coro_epoll_server ${LIBAIO_LIBRARIES})
 
+add_executable(coro_epoll_client coro_epoll_client.cpp coro_epoll/IoContext.cpp coro_epoll/Socket.cpp)
+target_link_libraries(coro_epoll_client async_simple)
+target_link_libraries(coro_epoll_client ${LIBAIO_LIBRARIES})
+
 SET(ENABLE_SSL OFF)
 
 if (ENABLE_SSL)
