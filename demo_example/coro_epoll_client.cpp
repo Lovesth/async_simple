@@ -28,26 +28,26 @@ async_simple::coro::Lazy<> client_send(IoContext *io_context, std::string host,
                 if (res == -1) {
                     co_return;
                 }
-                char buffer[1024] = "Hello, this is coro_epoll_client";
+                char buffer[] = "Hello, this is coro_epoll_client";
+                int bufferSize = sizeof(buffer);
                 for (int j=0; j<nRound; ++j) {
                     int send_bytes{0};
-                    while (send_bytes < 1024) {
-                        auto tmp = co_await send(&sock, buffer+send_bytes, sizeof(buffer)-send_bytes);
+                    while (send_bytes < bufferSize) {
+                        auto tmp = co_await send(&sock, buffer+send_bytes, bufferSize-send_bytes);
                         if (tmp <= 0) {
                             co_return;
                         }
                         send_bytes += tmp;
                     }
                     int recv_bytes{0};
-                    while (recv_bytes < 1024) {
-                        auto tmp = co_await recv(&sock, buffer+recv_bytes, sizeof(buffer)-recv_bytes);
+                    while (recv_bytes < bufferSize) {
+                        auto tmp = co_await recv(&sock, buffer+recv_bytes, bufferSize-recv_bytes);
                         if (tmp <= 0) {
                             co_return;
                         }
                         recv_bytes += tmp;
                     }
                 }
-
             };
             func().start([](auto&&){});
         });

@@ -8,7 +8,7 @@
 
 Socket::Socket(int domain, int type, int protocol, IoContext *io_context, uint32_t listen_events)
     : io_context_(io_context), listen_events_(listen_events) {
-    fd_ = ::socket(domain, type, protocol);
+    fd_ = ::socket(domain, type | SOCK_NONBLOCK, protocol);
     if (fd_ == -1) {
         std::cerr << "Error creating socket" << std::endl;
         exit(-1);
@@ -23,6 +23,15 @@ Socket::Socket(int fd, IoContext *io_context, uint32_t listen_events)
     : fd_(fd), io_context_(io_context), listen_events_(listen_events) {
     if (fd_ == -1) {
         std::cerr << "Error creating socket" << std::endl;
+        exit(-1);
+    }
+    int flag = ::fcntl(fd_, F_GETFL, 0);
+    if (flag == -1) {
+        std::cerr << "Error get fd flag" << std::endl;
+        exit(-1);
+    }
+    if (::fcntl(fd_, F_SETFL, flag | O_NONBLOCK) == -1) {
+        std::cerr << "Error set NOBLOCK" << std::endl;
         exit(-1);
     }
     if (!addEvents(listen_events_) || !attach2IoContext()) {
