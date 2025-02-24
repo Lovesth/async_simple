@@ -1,11 +1,55 @@
 //
 // Created by xmh on 25-2-21.
 //
-#include <netinet/in.h>
-
 #include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
 #include <asio/detail/socket_ops.hpp>
 #include "HookSysCall.hpp"
+
+async_simple::coro::Lazy<> client_send_impl(const sockaddr_in server_addr, IoContext *io_context, int nRound) {
+    Socket sock(AF_INET, SOCK_STREAM, 0, io_context);
+    // int res = ::connect(sock.fd_, reinterpret_cast<const
+    // sockaddr*>((&server_addr)), sizeof(server_addr));
+    auto res = co_await connect(&sock, reinterpret_cast<const sockaddr *>((&server_addr)));
+    if (res == -1) {
+        co_return;
+    }
+    char buffer[] = "Hello, this is coro_epoll_client";
+    int bufferSize = sizeof(buffer);
+    for (int j = 0; j < nRound; ++j) {
+        std::cout << "start nRound: " << j << " total round: " << nRound << std::endl;
+        int send_bytes{0};
+        while (send_bytes < bufferSize) {
+            std::cout << "Before send" << std::endl;
+            auto tmp = co_await send(&sock, buffer + send_bytes,bufferSize - send_bytes);
+            std::cout << "Send byte cnt: " << tmp << std::endl;
+            if (tmp <= 0) {
+                std::cerr << "Error send message!" << std::endl;
+                co_return;
+            }
+            send_bytes += tmp;
+        }
+        std::cout << "Send finished" << std::endl;
+        int recv_bytes{0};
+        while (recv_bytes < bufferSize) {
+            auto tmp = co_await recv(&sock, buffer + recv_bytes,
+                                     bufferSize - recv_bytes);
+            std::cout << "recv count: " << tmp << std::endl;
+            if (tmp < 0) {
+                std::cerr << "Error recv message!" << std::endl;
+                co_return;
+            }
+            if (tmp == 0) {
+                std::cerr << "socket is closed by server!" << std::endl;
+                co_return;
+            }
+            recv_bytes += tmp;
+        }
+    }
+    std::cout << "Send message nRound" << std::endl;
+    co_return;
+}
 
 async_simple::coro::Lazy<> client_send(IoContext *io_context, std::string host,
                                        int port, int nClients = 1024,
@@ -21,45 +65,19 @@ async_simple::coro::Lazy<> client_send(IoContext *io_context, std::string host,
 
     // 创建nClients个客户端
     for (int i = 0; i < nClients; ++i) {
-        executor_->schedule([server_addr, io_context, nRound]() mutable -> void {
-            auto func = [server_addr, io_context, nRound]() -> async_simple::coro::Lazy<> {
-                Socket sock(AF_INET, SOCK_STREAM, 0, io_context);
-                auto res = co_await connect(&sock, reinterpret_cast<sockaddr*>(const_cast<sockaddr_in *>(&server_addr)));
-                if (res == -1) {
-                    co_return;
-                }
-                char buffer[] = "Hello, this is coro_epoll_client";
-                int bufferSize = sizeof(buffer);
-                for (int j=0; j<nRound; ++j) {
-                    int send_bytes{0};
-                    while (send_bytes < bufferSize) {
-                        auto tmp = co_await send(&sock, buffer+send_bytes, bufferSize-send_bytes);
-                        if (tmp <= 0) {
-                            co_return;
-                        }
-                        send_bytes += tmp;
-                    }
-                    int recv_bytes{0};
-                    while (recv_bytes < bufferSize) {
-                        auto tmp = co_await recv(&sock, buffer+recv_bytes, bufferSize-recv_bytes);
-                        if (tmp <= 0) {
-                            co_return;
-                        }
-                        recv_bytes += tmp;
-                    }
-                }
-            };
-            func().start([](auto&&){});
+        executor_->schedule(
+            [server_addr, io_context, nRound]() -> void {
+                client_send_impl(server_addr, io_context, nRound).start([](auto &&) {});
         });
     }
 }
 
 int main() {
-    async_simple::executors::SimpleExecutor executor{32};
+    async_simple::executors::SimpleExecutor executor{1};
     IoContext io_context(100, &executor);
 
     auto t = std::jthread(&IoContext::run, &io_context);
-    client_send(&io_context, "127.0.0.1", 8080, 1024, 1024)
+    client_send(&io_context, "127.0.0.1", 8080, 1, 1024)
         .directlyStart([](auto &&) {}, &executor);
     return 0;
 }

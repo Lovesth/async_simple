@@ -47,40 +47,39 @@ void IoContext::run() {
             const auto events = eventPool_[i].events;
             async_simple::coro::ScopedSpinLock Lock(sock->coro_lock_);
             // 隐式监听
-            if (events & (EPOLLERR | EPOLLHUP)) {
+            if (events & EPOLLERR ) {
+                std::cout << "Error happened" << std::endl;
                 // 出错或者关闭，交给上层处理错误
                 sock->recv_event_ = events;
                 sock->send_event_ = events;
                 if (auto h = std::exchange(sock->coro_recv_, nullptr); h) {
-                    executor_->schedule([h] { h.resume(); });
+                    std::cout << "resume coro_recv_ now" << std::endl;
+                    executor_->schedule(h);
                 }
                 if (auto h = std::exchange(sock->coro_send_, nullptr); h) {
-                    executor_->schedule([h] { h.resume(); });
+                    std::cout << "resume coro_send_ now" << std::endl;
+                    executor_->schedule(h);
                 }
                 continue;
             }
 
-            if (events & EPOLLRDHUP) {
-                auto h = std::exchange(sock->coro_recv_, nullptr);
-                sock->recv_event_ = events;
-                if (h) {
-                    executor_->schedule([h] { h.resume(); });
-                }
-            }
-
             if (events & EPOLLIN) {
+                std::cout << "EPOLLIN happened" << std::endl;
                 auto h = std::exchange(sock->coro_recv_, nullptr);
                 sock->recv_event_ = events;
                 if (h) {
-                    executor_->schedule([h] { h.resume(); });
+                    std::cout << "resume coro_recv_ now" << std::endl;
+                    executor_->schedule(h);
                 }
             }
 
             if (events & EPOLLOUT) {
+                std::cout << "EPOLLOUT happened" << std::endl;
                 auto h = std::exchange(sock->coro_send_, nullptr);
                 sock->send_event_ = events;
                 if (h) {
-                    executor_->schedule([h] { h.resume(); });
+                    std::cout << "resume coro_send_ now" << std::endl;
+                    executor_->schedule(h);
                 }
             }
         }

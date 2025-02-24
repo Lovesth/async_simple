@@ -12,9 +12,10 @@
 #include "async_simple/coro/Lazy.h"
 
 // 假设Socket::fd_已经是no_block模式
-async_simple::coro::Lazy<int> connect(Socket *sock, sockaddr *serverAdder) {
-    int ret = ::connect(sock->fd_, serverAdder, sizeof(sockaddr));
-    if (ret == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+async_simple::coro::Lazy<int> connect(Socket *sock, const sockaddr *serverAdder) {
+    // std::cout << "connect 1" << std::endl;
+    int ret = ::connect(sock->fd_, serverAdder, sizeof(*serverAdder));
+    if (ret == -1 && (errno == EINPROGRESS)) {
         if (sock->addEvents(EPOLLOUT)) {
             auto events = co_await SendAwaiter(sock);
             (void)events;
@@ -29,6 +30,7 @@ async_simple::coro::Lazy<int> send(Socket *sock, void *buffer, size_t len) {
     int ret = ::send(sock->fd_, buffer, len, 0);
     if (ret == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
         if (sock->addEvents(EPOLLOUT)) {
+            std::cout << "co_await SendAwaiter" << std::endl;
             auto events = co_await SendAwaiter(sock);
             (void)events;
             // TODO 判断是否是ET模式
@@ -42,6 +44,7 @@ async_simple::coro::Lazy<int> recv(Socket *sock, void *buffer, size_t len) {
     int ret = ::recv(sock->fd_, buffer, len, 0);
     if (ret == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
         if (sock->addEvents(EPOLLIN)) {
+            std::cout << "co_await RecvAwaiter" << std::endl;
             auto events = co_await RecvAwaiter(sock);
             (void)events;
             // TODO 判断是否是ET模式

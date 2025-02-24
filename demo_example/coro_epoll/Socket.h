@@ -6,11 +6,13 @@
 #define SOCKET_H
 
 #include <async_simple/coro/SpinLock.h>
+#include <async_simple/executors/SimpleExecutor.h>
+#include <fcntl.h>
 #include <sys/epoll.h>
 #include <coroutine>
 #include <cstdint>
-#include <fcntl.h>
 #include <iostream>
+#include <memory>
 
 // 一个Socket最多可被两个线程操作（一个读一个写）
 class IoContext;
@@ -25,8 +27,8 @@ public:
     //     ET = 1<<5, // ET模式
     //     ONESHOT = 1<<6, // 只监听一次事件，事件触发之后从epoll移除
     // };
-    Socket(int domain, int type, int protocol, IoContext *io_context, uint32_t listen_events = (EPOLLIN | EPOLLOUT | EPOLLRDHUP));
-    Socket(int fd, IoContext *io_context, uint32_t listen_events = (EPOLLIN | EPOLLOUT | EPOLLRDHUP));
+    Socket(int domain, int type, int protocol, IoContext *io_context, uint32_t listen_events = (EPOLLIN | EPOLLOUT | EPOLLRDHUP | EPOLLET));
+    Socket(int fd, IoContext *io_context, uint32_t listen_events = (EPOLLIN | EPOLLOUT | EPOLLRDHUP | EPOLLET));
     Socket(const Socket &) = delete;
     Socket &operator=(const Socket &) = delete;
     Socket(Socket &&other) = delete;
@@ -64,13 +66,21 @@ struct SendAwaiter {
     bool await_ready() noexcept { return false; }
     bool await_suspend(std::coroutine_handle<> h) noexcept {
         async_simple::coro::ScopedSpinLock Lock(sock->coro_lock_);
-        if (sock->send_event_)
+        if (sock->send_event_) {
+            std::cout << "resume coro_send_ immediately" << std::endl;
             return false;
+        }
+        std::cout << "suspend coro_send_" << std::endl;
         sock->coro_send_ = h;
         return true;
     }
-
-    auto await_resume() noexcept { return std::exchange(sock->send_event_, 0); }
+    auto await_resume() noexcept {
+        std::cout << "Set send_event_ 0" << std::endl;
+        return std::exchange(sock->send_event_, 0);
+    }
+    auto coAwait(async_simple::Executor*) {
+        return std::move(*this);
+    }
 };
 
 struct RecvAwaiter {
@@ -79,12 +89,21 @@ struct RecvAwaiter {
     bool await_ready() noexcept { return false; }
     bool await_suspend(std::coroutine_handle<> h) noexcept {
         async_simple::coro::ScopedSpinLock Lock(sock->coro_lock_);
-        if (sock->recv_event_)
+        if (sock->recv_event_) {
+            std::cout << "resume coro_recv_ immediately" << std::endl;
             return false;
+        }
+        std::cout << "suspend coro_recv_" << std::endl;
         sock->coro_recv_ = h;
         return true;
     }
-    auto await_resume() noexcept { return std::exchange(sock->recv_event_, 0); }
+    auto await_resume() noexcept {
+        std::cout << "Set recv_event_ 0" << std::endl;
+        return std::exchange(sock->recv_event_, 0);
+    }
+    auto coAwait(async_simple::Executor*) {
+        return std::move(*this);
+    }
 };
 
 #endif  // SOCKET_H

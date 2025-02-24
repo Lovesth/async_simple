@@ -13,7 +13,7 @@ Socket::Socket(int domain, int type, int protocol, IoContext *io_context, uint32
         std::cerr << "Error creating socket" << std::endl;
         exit(-1);
     }
-    if (!addEvents(listen_events_) || !attach2IoContext()) {
+    if (!attach2IoContext()) {
         std::cerr << "Error attached to io_context" << std::endl;
         exit(-1);
     }
@@ -34,7 +34,7 @@ Socket::Socket(int fd, IoContext *io_context, uint32_t listen_events)
         std::cerr << "Error set NOBLOCK" << std::endl;
         exit(-1);
     }
-    if (!addEvents(listen_events_) || !attach2IoContext()) {
+    if (!attach2IoContext()) {
         std::cerr << "Error attached to io_context" << std::endl;
         exit(-1);
     }
