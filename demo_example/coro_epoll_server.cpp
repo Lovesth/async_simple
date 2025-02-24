@@ -17,15 +17,10 @@ async_simple::coro::Lazy<> echo_server_impl(int fd, IoContext* io_context) {
         std::cout << "recv: " << recv_len << " bytes" << std::endl;
         if (recv_len < 0) {
             std::cerr << "Error receive message!" << std::endl;
-            std::cout << ((errno == EAGAIN) || (errno == EWOULDBLOCK)) << std::endl;
-            ::close(sock.fd_);
-            sock.fd_ = -1;
             co_return;
         }
         if (recv_len == 0) {
             std::cout << "socket is closed by client!" << std::endl;
-            ::close(sock.fd_);
-            sock.fd_ = -1;
             co_return;
         }
         // send
@@ -45,28 +40,22 @@ async_simple::coro::Lazy<> echo_server_impl(int fd, IoContext* io_context) {
     co_return;
 }
 
-async_simple::coro::Lazy<uint32_t> echo_server(Socket* server_sock) {
+async_simple::coro::Lazy<> echo_server(Socket* server_sock) {
     auto executor_ = co_await async_simple::CurrentExecutor{};
     auto io_context = server_sock->io_context_;
     async_simple::logicAssert(executor_,"executor is not allowed to be nullptr here!");
-    // while (true) {
-        // auto fd = co_await accept(server_sock);
-        int fd = -1;
-        struct sockaddr_storage addr{};
-        socklen_t len = sizeof(addr);
-        while (fd == -1) {
-            fd = ::accept(server_sock->fd_, (sockaddr*)(&addr), &len);
-        }
+    while (true) {
+        auto fd = co_await accept(server_sock);
         if (fd == -1) {
             ::close(server_sock->fd_);
             server_sock->fd_ = -1;
-            co_return server_sock->recv_event_;
+            co_return;
         }
         executor_->schedule([fd, io_context]() -> void {
             echo_server_impl(fd, io_context).start([](auto&&) {});
         });
-    // }
-    co_return 0;
+    }
+    co_return;
 }
 
 int main() {
@@ -101,7 +90,7 @@ int main() {
     }
 
     //
-    async_simple::executors::SimpleExecutor executor{1};
+    async_simple::executors::SimpleExecutor executor{16};
     IoContext io_context(100, &executor);
     Socket server_sock(server_fd, &io_context);
 

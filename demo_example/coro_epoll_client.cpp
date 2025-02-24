@@ -9,8 +9,6 @@
 
 async_simple::coro::Lazy<> client_send_impl(const sockaddr_in server_addr, IoContext *io_context, int nRound) {
     Socket sock(AF_INET, SOCK_STREAM, 0, io_context);
-    // int res = ::connect(sock.fd_, reinterpret_cast<const
-    // sockaddr*>((&server_addr)), sizeof(server_addr));
     auto res = co_await connect(&sock, reinterpret_cast<const sockaddr *>((&server_addr)));
     if (res == -1) {
         co_return;
@@ -18,10 +16,8 @@ async_simple::coro::Lazy<> client_send_impl(const sockaddr_in server_addr, IoCon
     char buffer[] = "Hello, this is coro_epoll_client";
     int bufferSize = sizeof(buffer);
     for (int j = 0; j < nRound; ++j) {
-        std::cout << "start nRound: " << j << " total round: " << nRound << std::endl;
         int send_bytes{0};
         while (send_bytes < bufferSize) {
-            std::cout << "Before send" << std::endl;
             auto tmp = co_await send(&sock, buffer + send_bytes,bufferSize - send_bytes);
             std::cout << "Send byte cnt: " << tmp << std::endl;
             if (tmp <= 0) {
@@ -30,7 +26,6 @@ async_simple::coro::Lazy<> client_send_impl(const sockaddr_in server_addr, IoCon
             }
             send_bytes += tmp;
         }
-        std::cout << "Send finished" << std::endl;
         int recv_bytes{0};
         while (recv_bytes < bufferSize) {
             auto tmp = co_await recv(&sock, buffer + recv_bytes,
@@ -73,11 +68,11 @@ async_simple::coro::Lazy<> client_send(IoContext *io_context, std::string host,
 }
 
 int main() {
-    async_simple::executors::SimpleExecutor executor{1};
+    async_simple::executors::SimpleExecutor executor{16};
     IoContext io_context(100, &executor);
 
     auto t = std::jthread(&IoContext::run, &io_context);
-    client_send(&io_context, "127.0.0.1", 8080, 1, 1024)
+    client_send(&io_context, "127.0.0.1", 9980, 1000, 1000)
         .directlyStart([](auto &&) {}, &executor);
     return 0;
 }
